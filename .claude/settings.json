@@ -6,7 +6,8 @@
       "Bash(npx create-next-app@latest . --typescript --tailwind --app --src-dir --import-alias \"@/*\" --eslint --no-turbopack --use-npm --no-experimental-app 2)",
       "Bash(npm install fabric nanoid jspdf @vercel/blob lucide-react sonner)",
       "Bash(npx next build)",
-      "Bash(curl -s -X POST https://white-board-wheat-iota.vercel.app/api/boards -H \"Content-Type: application/json\" -d '{\"\"name\"\":\"\"Test Board\"\"}')"
+      "Bash(curl -s -X POST https://white-board-wheat-iota.vercel.app/api/boards -H \"Content-Type: application/json\" -d '{\"\"name\"\":\"\"Test Board\"\"}')",
+      "Bash(node -e \"const blob = require\\(''@vercel/blob''\\); console.log\\(typeof blob.get\\)\")"
     ]
   }
 }

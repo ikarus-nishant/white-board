@@ -7,30 +7,36 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const board = await getBoard(id);
+  try {
+    const { id } = await params;
+    const board = await getBoard(id);
 
-  if (!board) {
-    return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    }
+
+    // If already has a share ID, return it
+    if (board.shareId) {
+      return NextResponse.json({ shareId: board.shareId });
+    }
+
+    // Generate new share ID
+    const shareId = nanoid(12);
+    board.shareId = shareId;
+    board.updatedAt = new Date().toISOString();
+    await saveBoard(board);
+
+    // Update share index
+    const shareIndex = await getShareIndex();
+    shareIndex[shareId] = id;
+    await saveShareIndex(shareIndex);
+
+    return NextResponse.json({ shareId });
+  } catch (err) {
+    console.error('POST /api/share error:', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Failed to generate share link: ${message}` }, { status: 500 });
   }
-
-  // If already has a share ID, return it
-  if (board.shareId) {
-    return NextResponse.json({ shareId: board.shareId });
-  }
-
-  // Generate new share ID
-  const shareId = nanoid(12);
-  board.shareId = shareId;
-  board.updatedAt = new Date().toISOString();
-  await saveBoard(board);
-
-  // Update share index
-  const shareIndex = await getShareIndex();
-  shareIndex[shareId] = id;
-  await saveShareIndex(shareIndex);
-
-  return NextResponse.json({ shareId });
 }
 
 // GET: Load a shared board by shareId
@@ -38,19 +44,25 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: shareId } = await params;
-  const shareIndex = await getShareIndex();
-  const boardId = shareIndex[shareId];
+  try {
+    const { id: shareId } = await params;
+    const shareIndex = await getShareIndex();
+    const boardId = shareIndex[shareId];
 
-  if (!boardId) {
-    return NextResponse.json({ error: 'Shared board not found' }, { status: 404 });
+    if (!boardId) {
+      return NextResponse.json({ error: 'Shared board not found' }, { status: 404 });
+    }
+
+    const board = await getBoard(boardId);
+
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(board);
+  } catch (err) {
+    console.error('GET /api/share error:', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Failed to load shared board: ${message}` }, { status: 500 });
   }
-
-  const board = await getBoard(boardId);
-
-  if (!board) {
-    return NextResponse.json({ error: 'Board not found' }, { status: 404 });
-  }
-
-  return NextResponse.json(board);
 }

@@ -1,15 +1,22 @@
-import { put, list, del } from '@vercel/blob';
+import { put, get, list, del } from '@vercel/blob';
 import { Board, BoardIndex, BoardListItem, ShareIndex } from '@/types/board';
 
 const BOARDS_INDEX = 'boards/_index.json';
 const SHARES_INDEX = 'shares/_index.json';
 
+async function readBlob(url: string): Promise<string> {
+  const result = await get(url, { access: 'private' });
+  if (!result || !result.stream) throw new Error('Blob not found');
+  const response = new Response(result.stream);
+  return await response.text();
+}
+
 export async function getBoardIndex(): Promise<BoardIndex> {
   try {
     const result = await list({ prefix: 'boards/_index' });
     if (result.blobs.length > 0) {
-      const res = await fetch(result.blobs[0].url);
-      return await res.json();
+      const text = await readBlob(result.blobs[0].url);
+      return JSON.parse(text);
     }
   } catch {
     // Index doesn't exist yet
@@ -19,7 +26,7 @@ export async function getBoardIndex(): Promise<BoardIndex> {
 
 export async function saveBoardIndex(index: BoardIndex): Promise<void> {
   await put(BOARDS_INDEX, JSON.stringify(index), {
-    access: 'public',
+    access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
     allowOverwrite: true,
@@ -30,8 +37,8 @@ export async function getBoard(id: string): Promise<Board | null> {
   try {
     const result = await list({ prefix: `boards/${id}.json` });
     if (result.blobs.length > 0) {
-      const res = await fetch(result.blobs[0].url);
-      return await res.json();
+      const text = await readBlob(result.blobs[0].url);
+      return JSON.parse(text);
     }
   } catch {
     return null;
@@ -41,7 +48,7 @@ export async function getBoard(id: string): Promise<Board | null> {
 
 export async function saveBoard(board: Board): Promise<void> {
   await put(`boards/${board.id}.json`, JSON.stringify(board), {
-    access: 'public',
+    access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
     allowOverwrite: true,
@@ -105,8 +112,8 @@ export async function getShareIndex(): Promise<ShareIndex> {
   try {
     const result = await list({ prefix: 'shares/_index' });
     if (result.blobs.length > 0) {
-      const res = await fetch(result.blobs[0].url);
-      return await res.json();
+      const text = await readBlob(result.blobs[0].url);
+      return JSON.parse(text);
     }
   } catch {
     // Index doesn't exist yet
@@ -116,7 +123,7 @@ export async function getShareIndex(): Promise<ShareIndex> {
 
 export async function saveShareIndex(index: ShareIndex): Promise<void> {
   await put(SHARES_INDEX, JSON.stringify(index), {
-    access: 'public',
+    access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
     allowOverwrite: true,
