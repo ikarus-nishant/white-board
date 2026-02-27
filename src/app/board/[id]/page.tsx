@@ -35,8 +35,10 @@ export default function BoardPage() {
   const canvasRef = useRef<Canvas | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const boardNameRef = useRef(boardName);
+  boardNameRef.current = boardName;
 
-  // Load board data
+  // Load board data from API
   useEffect(() => {
     async function loadBoard() {
       try {
@@ -46,7 +48,6 @@ export default function BoardPage() {
           setBoardName(board.name);
           setShareId(board.shareId);
 
-          // Wait for canvas to be ready then load state
           const waitForCanvas = setInterval(() => {
             if (canvasRef.current) {
               clearInterval(waitForCanvas);
@@ -66,7 +67,7 @@ export default function BoardPage() {
     loadBoard();
   }, [boardId]);
 
-  // Auto-save
+  // Auto-save to Vercel Blob via API
   const triggerAutoSave = useCallback(() => {
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -80,13 +81,103 @@ export default function BoardPage() {
         await fetch(`/api/boards/${boardId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: boardName, canvasState }),
+          body: JSON.stringify({ name: boardNameRef.current, canvasState }),
         });
       } catch {
         // Silent fail for auto-save
       }
     }, 3000);
-  }, [boardId, boardName]);
+  }, [boardId]);
+
+  // Place an image (from file or data URL) on the canvas
+  const placeImageOnCanvas = useCallback(async (dataUrl: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const imgEl = await FabricImage.fromURL(dataUrl);
+    const maxDim = 600;
+    const scale = Math.min(maxDim / (imgEl.width || maxDim), maxDim / (imgEl.height || maxDim), 1);
+    imgEl.scale(scale);
+
+    // Place at center of current viewport
+    const vpt = canvas.viewportTransform!;
+    const cx = (-vpt[4] + canvas.getWidth() / 2) / canvas.getZoom();
+    const cy = (-vpt[5] + canvas.getHeight() / 2) / canvas.getZoom();
+    imgEl.set({
+      left: cx - ((imgEl.width || 0) * scale) / 2,
+      top: cy - ((imgEl.height || 0) * scale) / 2,
+    });
+
+    canvas.add(imgEl);
+    canvas.setActiveObject(imgEl);
+    canvas.renderAll();
+  }, []);
+
+  // Ctrl+V paste handler for images
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      if (!canvasRef.current) return;
+
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const blob = item.getAsFile();
+          if (!blob) continue;
+
+          // Upload to Vercel Blob
+          const formData = new FormData();
+          formData.append('file', blob, `pasted-image.${item.type.split('/')[1] || 'png'}`);
+          formData.append('boardId', boardId);
+
+          try {
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error('Upload failed');
+            const { url } = await res.json();
+            const imgEl = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
+
+            const maxDim = 600;
+            const scale = Math.min(maxDim / (imgEl.width || maxDim), maxDim / (imgEl.height || maxDim), 1);
+            imgEl.scale(scale);
+
+            const canvas = canvasRef.current!;
+            const vpt = canvas.viewportTransform!;
+            const cx = (-vpt[4] + canvas.getWidth() / 2) / canvas.getZoom();
+            const cy = (-vpt[5] + canvas.getHeight() / 2) / canvas.getZoom();
+            imgEl.set({
+              left: cx - ((imgEl.width || 0) * scale) / 2,
+              top: cy - ((imgEl.height || 0) * scale) / 2,
+            });
+
+            canvas.add(imgEl);
+            canvas.setActiveObject(imgEl);
+            canvas.renderAll();
+            toast.success('Image pasted');
+          } catch {
+            // Fallback: use data URL directly
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+              const dataUrl = event.target?.result as string;
+              await placeImageOnCanvas(dataUrl);
+              toast.success('Image pasted');
+            };
+            reader.readAsDataURL(blob);
+          }
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [boardId, placeImageOnCanvas]);
 
   // Track canvas changes for auto-save
   const handleCanvasReady = useCallback(
@@ -101,7 +192,6 @@ export default function BoardPage() {
       canvas.on('selection:updated', () => setHasSelection(true));
       canvas.on('selection:cleared', () => setHasSelection(false));
 
-      // Track zoom changes
       canvas.on('mouse:wheel', () => {
         setZoom(canvas.getZoom());
       });
@@ -109,7 +199,6 @@ export default function BoardPage() {
     [triggerAutoSave]
   );
 
-  // Helpers attached by WhiteboardCanvas
   const getHelpers = () => (canvasRef.current as any)?.__helpers;
 
   const handleUndo = () => getHelpers()?.undo?.();
@@ -175,22 +264,16 @@ export default function BoardPage() {
       canvasRef.current.renderAll();
       toast.success('Image uploaded');
     } catch {
-      // If Vercel Blob is not configured, load image locally
+      // Fallback: load image locally via data URL
       const reader = new FileReader();
       reader.onload = async (event) => {
         const dataUrl = event.target?.result as string;
-        const imgEl = await FabricImage.fromURL(dataUrl);
-        imgEl.scaleToWidth(400);
-        imgEl.set({ left: 100, top: 100 });
-        canvasRef.current!.add(imgEl);
-        canvasRef.current!.setActiveObject(imgEl);
-        canvasRef.current!.renderAll();
+        await placeImageOnCanvas(dataUrl);
         toast.success('Image added (local only)');
       };
       reader.readAsDataURL(file);
     }
 
-    // Reset file input
     e.target.value = '';
   };
 

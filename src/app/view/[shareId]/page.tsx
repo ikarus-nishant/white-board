@@ -42,7 +42,6 @@ export default function ViewPage() {
           if (canvasRef.current) {
             clearInterval(waitForCanvas);
             loadCanvasState(canvasRef.current, board.canvasState).then(() => {
-              // Make all objects non-interactive
               const canvas = canvasRef.current!;
               canvas.selection = false;
               canvas.forEachObject((obj) => {

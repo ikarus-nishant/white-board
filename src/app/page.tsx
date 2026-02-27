@@ -24,7 +24,7 @@ export default function DashboardPage() {
         setBoards(data);
       }
     } catch {
-      // API not available (Vercel Blob not configured)
+      toast.error('Failed to load boards');
     } finally {
       setLoading(false);
     }
@@ -43,14 +43,12 @@ export default function DashboardPage() {
         const board = await res.json();
         router.push(`/board/${board.id}`);
       } else {
-        // Fallback: create board with random ID (local only)
-        const id = Math.random().toString(36).slice(2, 12);
-        router.push(`/board/${id}`);
+        toast.error('Failed to create board');
+        setCreating(false);
       }
     } catch {
-      // Fallback: create board with random ID (local only)
-      const id = Math.random().toString(36).slice(2, 12);
-      router.push(`/board/${id}`);
+      toast.error('Failed to create board');
+      setCreating(false);
     }
   }
 
