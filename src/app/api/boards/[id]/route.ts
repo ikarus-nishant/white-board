@@ -43,7 +43,7 @@ export async function PUT(
 
     await saveBoard(updated);
 
-    return NextResponse.json(updated);
+    return NextResponse.json({ success: true });
   } catch (err) {
     console.error('PUT /api/boards/[id] error:', err);
     return NextResponse.json({ error: 'Failed to update board' }, { status: 500 });

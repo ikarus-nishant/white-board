@@ -89,30 +89,6 @@ export default function BoardPage() {
     }, 3000);
   }, [boardId]);
 
-  // Place an image (from file or data URL) on the canvas
-  const placeImageOnCanvas = useCallback(async (dataUrl: string) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const imgEl = await FabricImage.fromURL(dataUrl);
-    const maxDim = 600;
-    const scale = Math.min(maxDim / (imgEl.width || maxDim), maxDim / (imgEl.height || maxDim), 1);
-    imgEl.scale(scale);
-
-    // Place at center of current viewport
-    const vpt = canvas.viewportTransform!;
-    const cx = (-vpt[4] + canvas.getWidth() / 2) / canvas.getZoom();
-    const cy = (-vpt[5] + canvas.getHeight() / 2) / canvas.getZoom();
-    imgEl.set({
-      left: cx - ((imgEl.width || 0) * scale) / 2,
-      top: cy - ((imgEl.height || 0) * scale) / 2,
-    });
-
-    canvas.add(imgEl);
-    canvas.setActiveObject(imgEl);
-    canvas.renderAll();
-  }, []);
-
   // Ctrl+V paste handler for images
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
@@ -161,14 +137,7 @@ export default function BoardPage() {
             canvas.renderAll();
             toast.success('Image pasted');
           } catch {
-            // Fallback: use data URL directly
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-              const dataUrl = event.target?.result as string;
-              await placeImageOnCanvas(dataUrl);
-              toast.success('Image pasted');
-            };
-            reader.readAsDataURL(blob);
+            toast.error('Failed to paste image');
           }
           return;
         }
@@ -177,7 +146,7 @@ export default function BoardPage() {
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [boardId, placeImageOnCanvas]);
+  }, [boardId]);
 
   // Track canvas changes for auto-save
   const handleCanvasReady = useCallback(
@@ -264,14 +233,7 @@ export default function BoardPage() {
       canvasRef.current.renderAll();
       toast.success('Image uploaded');
     } catch {
-      // Fallback: load image locally via data URL
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const dataUrl = event.target?.result as string;
-        await placeImageOnCanvas(dataUrl);
-        toast.success('Image added (local only)');
-      };
-      reader.readAsDataURL(file);
+      toast.error('Failed to upload image');
     }
 
     e.target.value = '';
