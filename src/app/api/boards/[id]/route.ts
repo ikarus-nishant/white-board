@@ -5,46 +5,61 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const board = await getBoard(id);
+  try {
+    const { id } = await params;
+    const board = await getBoard(id);
 
-  if (!board) {
-    return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(board);
+  } catch (err) {
+    console.error('GET /api/boards/[id] error:', err);
+    return NextResponse.json({ error: 'Failed to fetch board' }, { status: 500 });
   }
-
-  return NextResponse.json(board);
 }
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const board = await getBoard(id);
+  try {
+    const { id } = await params;
+    const board = await getBoard(id);
 
-  if (!board) {
-    return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const updated = {
+      ...board,
+      name: body.name ?? board.name,
+      canvasState: body.canvasState ?? board.canvasState,
+      thumbnailUrl: body.thumbnailUrl ?? board.thumbnailUrl,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await saveBoard(updated);
+
+    return NextResponse.json(updated);
+  } catch (err) {
+    console.error('PUT /api/boards/[id] error:', err);
+    return NextResponse.json({ error: 'Failed to update board' }, { status: 500 });
   }
-
-  const body = await request.json();
-  const updated = {
-    ...board,
-    name: body.name ?? board.name,
-    canvasState: body.canvasState ?? board.canvasState,
-    thumbnailUrl: body.thumbnailUrl ?? board.thumbnailUrl,
-    updatedAt: new Date().toISOString(),
-  };
-
-  await saveBoard(updated);
-
-  return NextResponse.json(updated);
 }
 
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  await deleteBoard(id);
-  return NextResponse.json({ success: true });
+  try {
+    const { id } = await params;
+    await deleteBoard(id);
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('DELETE /api/boards/[id] error:', err);
+    return NextResponse.json({ error: 'Failed to delete board' }, { status: 500 });
+  }
 }

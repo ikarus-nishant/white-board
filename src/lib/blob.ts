@@ -22,6 +22,7 @@ export async function saveBoardIndex(index: BoardIndex): Promise<void> {
     access: 'public',
     contentType: 'application/json',
     addRandomSuffix: false,
+    allowOverwrite: true,
   });
 }
 
@@ -43,6 +44,7 @@ export async function saveBoard(board: Board): Promise<void> {
     access: 'public',
     contentType: 'application/json',
     addRandomSuffix: false,
+    allowOverwrite: true,
   });
 
   // Update index
@@ -117,5 +119,6 @@ export async function saveShareIndex(index: ShareIndex): Promise<void> {
     access: 'public',
     contentType: 'application/json',
     addRandomSuffix: false,
+    allowOverwrite: true,
   });
 }
