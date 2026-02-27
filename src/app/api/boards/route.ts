@@ -9,7 +9,8 @@ export async function GET() {
     return NextResponse.json(index.boards);
   } catch (err) {
     console.error('GET /api/boards error:', err);
-    return NextResponse.json({ error: 'Failed to fetch boards' }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Failed to fetch boards: ${message}` }, { status: 500 });
   }
 }
 
@@ -38,8 +39,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(board, { status: 201 });
   } catch (err) {
     console.error('POST /api/boards error:', err);
+    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: 'Failed to create board. Check that BLOB_READ_WRITE_TOKEN is set.' },
+      { error: `Failed to create board: ${message}` },
       { status: 500 }
     );
   }
